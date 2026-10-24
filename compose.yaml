@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexus-foundry-postgres
+    environment:
+      POSTGRES_DB: nexus_foundry
+      POSTGRES_USER: nexus_foundry
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus_foundry -d nexus_foundry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexus-foundry-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: nexus-foundry-keycloak
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/nexus_foundry
+      KC_DB_USERNAME: nexus_foundry
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      - nexus-foundry-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: nexus-foundry-backend
+    environment:
+      DATABASE_URL: postgresql://nexus_foundry:${POSTGRES_PASSWORD:-changeme}@postgres:5432/nexus_foundry
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: nexus-foundry
+      KEYCLOAK_CLIENT_ID: nexus-foundry-backend
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      OIDC_ISSUER_URL: http://keycloak:8080/realms/nexus-foundry
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      DEBUG: "true"
+      VIDEO_OUTPUT_DIR: /app/videos
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - backend_videos:/app/videos
+      - ./backend:/app/backend:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - nexus-foundry-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: nexus-foundry-frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - nexus-foundry-network
+
+volumes:
+  postgres_data:
+  keycloak_data:
+  backend_videos:
+
+networks:
+  nexus-foundry-network:
+    driver: bridge

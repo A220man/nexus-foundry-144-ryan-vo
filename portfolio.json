@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "nexus-foundry-144-ryan-vo",
+  "owner": "A220man",
+  "email": "ryandtvo@gmail.com",
+  "domain": "AI/ML developer tools",
+  "summary": "Work in progress: nexus-foundry-144-ryan-vo",
+  "workflows": [
+    "Create video generation job from HTML/CSS via API or dashboard",
+    "Monitor job progress with real-time status polling",
+    "Download completed video files or receive webhook callbacks"
+  ],
+  "auth": "oidc-keycloak-saml-broker",
+  "llm_providers": [
+    "openai-compatible",
+    "anthropic",
+    "gemini",
+    "ollama"
+  ],
+  "status": "work-in-progress"
+}
