@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_feature": "skeleton",
+  "current_feature": "video-engine",
   "features": [
     {
       "id": "skeleton",
@@ -57,13 +57,18 @@
     {
       "id": "video-engine",
       "title": "Core video rendering engine",
-      "status": "planned",
+      "status": "in_progress",
       "acceptance": [
         "HTML-to-video rendering using headless browser",
         "Scene composition with timeline",
         "Export to MP4/WebM"
       ],
-      "implementation": [],
+      "implementation": [
+        "backend/app/services/video_renderer.py",
+        "backend/requirements.txt",
+        "backend/Dockerfile",
+        "backend/app/api/routes/jobs.py"
+      ],
       "tests": []
     },
     {
