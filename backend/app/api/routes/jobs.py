@@ -64,6 +64,7 @@ class JobListResponse(BaseModel):
 def process_job(job_id: uuid.UUID) -> None:
     """Background task to process a video generation job."""
     from app.core.database import get_session_factory
+    from app.services.video_renderer import video_renderer
     SessionLocal = get_session_factory()
     db = SessionLocal()
     try:
@@ -76,25 +77,11 @@ def process_job(job_id: uuid.UUID) -> None:
         job.progress = 10
         db.commit()
 
-        # Simulate video rendering (placeholder for actual rendering engine)
-        import time
-        time.sleep(2)  # Simulate work
-        job.progress = 50
-        db.commit()
-
-        time.sleep(2)  # Simulate more work
+        # Render video using the video rendering service
+        import asyncio
+        output_path = asyncio.run(video_renderer.render_job(job))
         job.progress = 90
         db.commit()
-
-        # Create output file (placeholder)
-        settings = get_settings()
-        os.makedirs(settings.video_output_dir, exist_ok=True)
-        output_filename = f"{job_id}.{job.format}"
-        output_path = os.path.join(settings.video_output_dir, output_filename)
-
-        # Write a placeholder file
-        with open(output_path, "wb") as f:
-            f.write(b"PLACEHOLDER VIDEO CONTENT")
 
         job.output_path = output_path
         job.output_url = f"/api/jobs/{job_id}/download"

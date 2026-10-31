@@ -4,7 +4,7 @@ Each round completes one feature or repair. Future items are planned, not implem
 
 ## Current round
 
-skeleton
+video-engine
 
 ## Roadmap
 
@@ -24,12 +24,14 @@ Tests: `backend/tests/test_health.py`, `backend/tests/test_jobs.py`, `frontend/s
 
 ### video-engine — Core video rendering engine
 
-Status: planned
+Status: in_progress
 
 Acceptance:
 - HTML-to-video rendering using headless browser
 - Scene composition with timeline
 - Export to MP4/WebM
+
+Implementation: `backend/app/services/video_renderer.py`, `backend/requirements.txt`, `backend/Dockerfile`, `backend/app/api/routes/jobs.py`
 
 ### agent-api — Agent-friendly API for programmatic video generation
 
