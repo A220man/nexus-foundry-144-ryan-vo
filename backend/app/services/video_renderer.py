@@ -17,9 +17,12 @@ class VideoRenderer:
     def __init__(self):
         self.settings = get_settings()
         self.output_dir = Path(self.settings.video_output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
         self._playwright = None
         self._browser = None
+
+    def _ensure_output_dir(self):
+        """Ensure output directory exists (lazy creation)."""
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     async def _ensure_browser(self):
         """Ensure Playwright browser is launched."""
