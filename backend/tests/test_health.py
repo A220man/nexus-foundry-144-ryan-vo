@@ -8,23 +8,22 @@ from app.main import app
 
 
 @pytest.mark.asyncio
-async def test_health_check():
+async def test_health_check(async_client):
     """Test basic health check endpoint."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        response = await client.get("/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "healthy"
-        assert "service" in data
-        assert "version" in data
+    response = await async_client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert "service" in data
+    assert "version" in data
 
 
 @pytest.mark.asyncio
-async def test_readiness_check():
+async def test_readiness_check(async_client):
     """Test readiness check endpoint."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        response = await client.get("/health/ready")
-        assert response.status_code == 200
-        data = response.json()
-        assert "status" in data
-        assert "database" in data
+    response = await async_client.get("/health/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert "status" in data
+    assert "database" in data
+
