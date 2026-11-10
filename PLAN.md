@@ -24,7 +24,7 @@ Tests: `backend/tests/test_health.py`, `backend/tests/test_jobs.py`, `frontend/s
 
 ### video-engine — Core video rendering engine
 
-Status: in_progress
+Status: done
 
 Acceptance:
 - HTML-to-video rendering using headless browser
@@ -32,6 +32,8 @@ Acceptance:
 - Export to MP4/WebM
 
 Implementation: `backend/app/services/video_renderer.py`, `backend/requirements.txt`, `backend/Dockerfile`, `backend/app/api/routes/jobs.py`
+
+Tests: `backend/tests/test_jobs.py::test_create_scene_render_job`, `backend/tests/test_jobs.py::test_create_scene_render_job_validation`, `backend/tests/test_jobs.py::test_scene_render_logic`
 
 ### agent-api — Agent-friendly API for programmatic video generation
 

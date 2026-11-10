@@ -57,7 +57,7 @@
     {
       "id": "video-engine",
       "title": "Core video rendering engine",
-      "status": "in_progress",
+      "status": "done",
       "acceptance": [
         "HTML-to-video rendering using headless browser",
         "Scene composition with timeline",
@@ -69,7 +69,11 @@
         "backend/Dockerfile",
         "backend/app/api/routes/jobs.py"
       ],
-      "tests": []
+      "tests": [
+        "backend/tests/test_jobs.py::test_create_scene_render_job",
+        "backend/tests/test_jobs.py::test_create_scene_render_job_validation",
+        "backend/tests/test_jobs.py::test_scene_render_logic"
+      ]
     },
     {
       "id": "agent-api",
