@@ -4,10 +4,10 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import ffmpeg
 from playwright.async_api import async_playwright
-from app.models.job import Job, JobStatus
+from app.models.job import Job, JobStatus, JobType
 from app.core.config import get_settings
 
 
@@ -56,7 +56,14 @@ class VideoRenderer:
         Returns:
             Path to the rendered video file
         """
+        if job.job_type == JobType.SCENE_RENDER:
+            return await self._render_scene_job(job)
+        return await self._render_html_job(job)
+
+    async def _render_html_job(self, job: Job) -> str:
+        """Render a single HTML-to-video job."""
         await self._ensure_browser()
+        self._ensure_output_dir()
         
         output_filename = f"{job.id}.{job.format}"
         output_path = self.output_dir / output_filename
@@ -101,6 +108,80 @@ class VideoRenderer:
                 await page.close()
             
             # Encode frames to video using ffmpeg
+            await self._encode_video(frame_dir, output_path, job)
+        
+        return str(output_path)
+
+    async def _render_scene_job(self, job: Job) -> str:
+        """Render a scene-based job with timeline composition."""
+        await self._ensure_browser()
+        self._ensure_output_dir()
+        
+        output_filename = f"{job.id}.{job.format}"
+        output_path = self.output_dir / output_filename
+        
+        # Parse scene data from input_json
+        scenes = job.input_json.get("scenes", []) if job.input_json else []
+        if not scenes:
+            raise ValueError("Scene render job requires 'scenes' array in input_json")
+        
+        # Create temporary directory for all frames
+        with tempfile.TemporaryDirectory() as tmpdir:
+            frame_dir = Path(tmpdir) / "frames"
+            frame_dir.mkdir()
+            
+            global_frame_num = 0
+            
+            for scene_idx, scene in enumerate(scenes):
+                scene_html = scene.get("html", "")
+                scene_css = scene.get("css", "")
+                scene_duration = scene.get("duration", 1.0)
+                scene_fps = scene.get("fps", job.fps)
+                
+                # Calculate frames for this scene
+                scene_frames = int(scene_duration * scene_fps)
+                frame_interval_ms = 1000 / scene_fps
+                
+                # Build HTML for this scene
+                scene_job = Job(
+                    id=job.id,
+                    width=job.width,
+                    height=job.height,
+                    fps=scene_fps,
+                    duration=scene_duration,
+                    format=job.format,
+                    input_html=scene_html,
+                    input_css=scene_css,
+                )
+                html_content = self._build_html(scene_job)
+                
+                # Create HTML file for this scene
+                html_path = Path(tmpdir) / f"scene_{scene_idx}.html"
+                html_path.write_text(html_content)
+                
+                # Launch page for this scene
+                page = await self._browser.new_page(
+                    viewport={"width": job.width, "height": job.height},
+                    device_scale_factor=1,
+                )
+                
+                try:
+                    await page.goto(html_path.as_uri(), wait_until="networkidle")
+                    await page.wait_for_timeout(200)
+                    
+                    # Capture frames for this scene
+                    for frame_num in range(scene_frames):
+                        frame_path = frame_dir / f"frame_{global_frame_num:06d}.png"
+                        await page.screenshot(path=str(frame_path), full_page=False)
+                        global_frame_num += 1
+                        
+                        if frame_num < scene_frames - 1:
+                            await page.wait_for_timeout(frame_interval_ms)
+                            
+                finally:
+                    await page.close()
+            
+            # Encode all frames to video
             await self._encode_video(frame_dir, output_path, job)
         
         return str(output_path)
