@@ -24,6 +24,7 @@ class JobCreate(BaseModel):
     fps: int = Field(default=30, ge=1, le=120)
     duration: float = Field(default=10.0, ge=0.1, le=3600.0)
     format: str = Field(default="mp4", pattern="^(mp4|webm)$")
+    webhook_url: Optional[str] = None
 
 
 class JobResponse(BaseModel):
@@ -90,14 +91,48 @@ def process_job(job_id: uuid.UUID) -> None:
         job.completed_at = datetime.utcnow()
         job.progress = 100
         db.commit()
+        # Trigger webhook callback if webhook_url is set
+        if job.webhook_url:
+            await trigger_job_webhook(job.id, job.webhook_url, "completed")
 
     except Exception as e:
         job.status = JobStatus.FAILED
         job.error_message = str(e)
         job.completed_at = datetime.utcnow()
         db.commit()
+        # Trigger webhook callback on failure if webhook_url is set
+        if job.webhook_url:
+            await trigger_job_webhook(job.id, job.webhook_url, "failed")
     finally:
         db.close()
+
+
+async def trigger_job_webhook(job_id: uuid.UUID, webhook_url: str, status: str) -> None:
+    """Trigger a webhook callback for a job status change."""
+    import httpx
+    import asyncio
+    
+    payload = {
+        "job_id": str(job_id),
+        "status": status,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Support both HTTP and HTTPS webhooks
+            if webhook_url.startswith("http://") or webhook_url.startswith("https://"):
+                response = await client.post(webhook_url, json=payload)
+                response.raise_for_status()
+            else:
+                # Assume it's a URL we can post to directly
+                response = await client.post(webhook_url, json=payload)
+                response.raise_for_status()
+    except httpx.HTTPError as e:
+        # Log webhook failure but don't fail the job
+        print(f"Webhook delivery failed for job {job_id}: {e}")
+    except Exception as e:
+        print(f"Unexpected webhook error for job {job_id}: {e")
 
 
 @router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
