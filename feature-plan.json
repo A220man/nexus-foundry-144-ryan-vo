@@ -78,14 +78,21 @@
     {
       "id": "agent-api",
       "title": "Agent-friendly API for programmatic video generation",
-      "status": "planned",
+      "status": "in_progress",
       "acceptance": [
         "Structured input schema for video jobs",
         "Job status polling endpoint",
         "Webhook callback on completion"
       ],
-      "implementation": [],
-      "tests": []
+      "implementation": [
+        "backend/app/api/routes/jobs.py::AgentJobCreate schema",
+        "backend/app/api/routes/jobs.py::create_agent_job endpoint",
+        "backend/app/api/routes/jobs.py::process_job async task"
+      ],
+      "tests": [
+        "backend/tests/test_jobs.py::test_create_job (existing)",
+        "backend/tests/test_jobs.py::test_create_job_validation (existing)"
+      ]
     }
   ]
 }
