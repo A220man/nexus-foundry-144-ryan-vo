@@ -13,20 +13,7 @@ from app.models.job import Job, JobStatus, JobType
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 
-class JobCreate(BaseModel):
-    """Request model for creating a video generation job."""
-    job_type: JobType = JobType.HTML_TO_VIDEO
-    input_html: Optional[str] = None
-    input_css: Optional[str] = None
-    input_json: Optional[dict] = None
-    width: int = Field(default=1920, ge=100, le=7680)
-    height: int = Field(default=1080, ge=100, le=4320)
-    fps: int = Field(default=30, ge=1, le=120)
-    duration: float = Field(default=10.0, ge=0.1, le=3600.0)
-    format: str = Field(default="mp4", pattern="^(mp4|webm)$")
-    webhook_url: Optional[str] = None
-
-
+# Job response model - defined first since it's used by multiple endpoints
 class JobResponse(BaseModel):
     """Response model for job data."""
     id: uuid.UUID
@@ -54,6 +41,103 @@ class JobResponse(BaseModel):
         from_attributes = True
 
 
+# Agent-friendly structured input schema for programmatic video generation
+# This schema is designed for agent/LLM consumption and programmatic API use
+class AgentJobCreate(BaseModel):
+    """Minimal structured input for agent-created video jobs.
+    
+    Agents can use this schema to create video generation jobs with
+    clearly defined, validated fields. All fields have defaults and
+    validation constraints suitable for automated workflows.
+    """
+    job_type: str = Field(default="html_to_video", description="Type of video generation job")
+    input_html: Optional[str] = Field(default=None, description="HTML content for video generation")
+    input_css: Optional[str] = Field(default=None, description="CSS styling for video generation")
+    input_json: Optional[dict] = Field(default=None, description="JSON data for template rendering")
+    width: int = Field(default=1920, ge=100, le=7680, description="Video width in pixels")
+    height: int = Field(default=1080, ge=100, le=4320, description="Video height in pixels")
+    fps: int = Field(default=30, ge=1, le=120, description="Frames per second")
+    duration: float = Field(default=10.0, ge=0.1, le=3600.0, description="Video duration in seconds")
+    format: str = Field(default="mp4", pattern="^(mp4|webm)$", description="Output video format")
+    webhook_url: Optional[str] = Field(default=None, description="Callback URL on job completion")
+    
+    model_config = {
+        "json_schema_extra": {
+            "description": "Agent-friendly schema for programmatic video job creation"
+        }
+    }
+
+
+# Map agent job type strings to JobType enum
+AGENT_JOB_TYPE_MAP = {
+    "html_to_video": JobType.HTML_TO_VIDEO,
+    "scene_render": JobType.SCENE_RENDER,
+    "template_render": JobType.TEMPLATE_RENDER,
+}
+
+
+# Agent API endpoint for programmatic video job creation
+@router.post("/agent", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+async def create_agent_job(
+    job_data: AgentJobCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db_session),
+) -> JobResponse:
+    """Create a video generation job using the agent-friendly API.
+    
+    This endpoint provides a structured, validated input schema designed
+    for programmatic use by agents and LLMs. All fields have validation
+    constraints and sensible defaults.
+    
+    Args:
+        job_data: Structured input following the AgentJobCreate schema
+        background_tasks: FastAPI background tasks dependency
+        db: Database session dependency
+    
+    Returns:
+        JobResponse with the created job details
+    """
+    # Map the string job_type to the enum, defaulting to HTML_TO_VIDEO
+    job_type_enum = AGENT_JOB_TYPE_MAP.get(job_data.job_type, JobType.HTML_TO_VIDEO)
+    
+    job = Job(
+        job_type=job_type_enum,
+        input_html=job_data.input_html,
+        input_css=job_data.input_css,
+        input_json=job_data.input_json,
+        width=job_data.width,
+        height=job_data.height,
+        fps=job_data.fps,
+        duration=job_data.duration,
+        format=job_data.format,
+        status=JobStatus.PENDING,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    
+    # Queue background processing
+    background_tasks.add_task(process_job, job.id)
+    
+    return JobResponse.model_validate(job)
+
+
+# Standard job creation model (for web UI form submissions)
+class JobCreate(BaseModel):
+    """Request model for creating a video generation job."""
+    job_type: JobType = JobType.HTML_TO_VIDEO
+    input_html: Optional[str] = None
+    input_css: Optional[str] = None
+    input_json: Optional[dict] = None
+    width: int = Field(default=1920, ge=100, le=7680)
+    height: int = Field(default=1080, ge=100, le=4320)
+    fps: int = Field(default=30, ge=1, le=120)
+    duration: float = Field(default=10.0, ge=0.1, le=3600.0)
+    format: str = Field(default="mp4", pattern="^(mp4|webm)$")
+    webhook_url: Optional[str] = None
+
+
+# Standard job list response
 class JobListResponse(BaseModel):
     """Response model for paginated job list."""
     jobs: List[JobResponse]
@@ -62,8 +146,8 @@ class JobListResponse(BaseModel):
     page_size: int
 
 
-def process_job(job_id: uuid.UUID) -> None:
-    """Background task to process a video generation job."""
+async def process_job(job_id: uuid.UUID) -> None:
+    """Background async task to process a video generation job."""
     from app.core.database import get_session_factory
     from app.services.video_renderer import video_renderer
     SessionLocal = get_session_factory()
@@ -80,7 +164,7 @@ def process_job(job_id: uuid.UUID) -> None:
 
         # Render video using the video rendering service
         import asyncio
-        output_path = asyncio.run(video_renderer.render_job(job))
+        output_path = await video_renderer.render_job(job)
         job.progress = 90
         db.commit()
 
@@ -110,7 +194,6 @@ def process_job(job_id: uuid.UUID) -> None:
 async def trigger_job_webhook(job_id: uuid.UUID, webhook_url: str, status: str) -> None:
     """Trigger a webhook callback for a job status change."""
     import httpx
-    import asyncio
     
     payload = {
         "job_id": str(job_id),
@@ -132,7 +215,7 @@ async def trigger_job_webhook(job_id: uuid.UUID, webhook_url: str, status: str) 
         # Log webhook failure but don't fail the job
         print(f"Webhook delivery failed for job {job_id}: {e}")
     except Exception as e:
-        print(f"Unexpected webhook error for job {job_id}: {e")
+        print(f"Unexpected webhook error for job {job_id}: {e}")
 
 
 @router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
