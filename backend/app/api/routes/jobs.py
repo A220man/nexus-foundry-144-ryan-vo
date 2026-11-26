@@ -50,7 +50,7 @@ class AgentJobCreate(BaseModel):
     clearly defined, validated fields. All fields have defaults and
     validation constraints suitable for automated workflows.
     """
-    job_type: str = Field(default="html_to_video", description="Type of video generation job")
+    job_type: JobType = Field(default=JobType.HTML_TO_VIDEO, description="Type of video generation job")
     input_html: Optional[str] = Field(default=None, description="HTML content for video generation")
     input_css: Optional[str] = Field(default=None, description="CSS styling for video generation")
     input_json: Optional[dict] = Field(default=None, description="JSON data for template rendering")
@@ -66,14 +66,6 @@ class AgentJobCreate(BaseModel):
             "description": "Agent-friendly schema for programmatic video job creation"
         }
     }
-
-
-# Map agent job type strings to JobType enum
-AGENT_JOB_TYPE_MAP = {
-    "html_to_video": JobType.HTML_TO_VIDEO,
-    "scene_render": JobType.SCENE_RENDER,
-    "template_render": JobType.TEMPLATE_RENDER,
-}
 
 
 # Agent API endpoint for programmatic video job creation
@@ -97,8 +89,8 @@ async def create_agent_job(
     Returns:
         JobResponse with the created job details
     """
-    # Map the string job_type to the enum, defaulting to HTML_TO_VIDEO
-    job_type_enum = AGENT_JOB_TYPE_MAP.get(job_data.job_type, JobType.HTML_TO_VIDEO)
+    # Use the job_type directly since it's already a JobType enum
+    job_type_enum = job_data.job_type
     
     job = Job(
         job_type=job_type_enum,

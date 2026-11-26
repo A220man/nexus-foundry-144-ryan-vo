@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-foundry"
-version = "1.6.0"
+version = "1.7.0"
 description = "Write HTML. Render video. Built for agents."
 readme = "README.md"
 license = {text = "MIT"}

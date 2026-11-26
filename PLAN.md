@@ -37,14 +37,14 @@ Tests: `backend/tests/test_jobs.py::test_create_scene_render_job`, `backend/test
 
 ### agent-api — Agent-friendly API for programmatic video generation
 
-Status: in_progress
+Status: done
 
 Acceptance:
-- Structured input schema for video jobs
+- Structured input schema for video jobs with JobType enum validation
 - Job status polling endpoint
 - Webhook callback on completion
 
-Implementation: `backend/app/api/routes/jobs.py::AgentJobCreate schema`, `backend/app/api/routes/jobs.py::create_agent_job endpoint`, `backend/app/api/routes/jobs.py::process_job async task`
+Implementation: `backend/app/api/routes/jobs.py::AgentJobCreate schema with JobType enum field`, `backend/app/api/routes/jobs.py::create_agent_job endpoint`, `backend/tests/test_jobs.py::test_create_agent_job_validation test`
 
-Tests: `backend/tests/test_jobs.py::test_create_job (existing)`, `backend/tests/test_jobs.py::test_create_job_validation (existing)`
+Tests: `backend/tests/test_jobs.py::test_create_job (existing)`, `backend/tests/test_jobs.py::test_create_job_validation (existing)`, `backend/tests/test_jobs.py::test_create_agent_job_validation (new)`
 
