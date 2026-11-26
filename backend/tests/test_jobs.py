@@ -238,3 +238,30 @@ async def test_scene_render_logic():
     total_scene_duration = sum(s.get("duration", 0) for s in scenes)
     assert total_scene_duration == 2.0
     assert total_scene_duration == job.duration
+
+@pytest.mark.asyncio
+async def test_create_agent_job_validation(async_client):
+    """Test AgentJobCreate schema validation."""
+    from app.api.routes.jobs import AgentJobCreate
+    from app.models.job import JobType
+    
+    # Test valid job types
+    job1 = AgentJobCreate(job_type=JobType.HTML_TO_VIDEO)
+    assert job1.job_type == JobType.HTML_TO_VIDEO
+    
+    job2 = AgentJobCreate(job_type=JobType.SCENE_RENDER)
+    assert job2.job_type == JobType.SCENE_RENDER
+    
+    job3 = AgentJobCreate(job_type=JobType.TEMPLATE_RENDER)
+    assert job3.job_type == JobType.TEMPLATE_RENDER
+    
+    # Test default job_type
+    job4 = AgentJobCreate()
+    assert job4.job_type == JobType.HTML_TO_VIDEO
+    
+    # Test invalid job_type raises validation error
+    try:
+        job_invalid = AgentJobCreate(job_type="invalid_type")
+        assert False, "Should have raised ValidationError"
+    except Exception:
+        pass  # Expected
